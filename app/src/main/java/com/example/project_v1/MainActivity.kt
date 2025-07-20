@@ -54,6 +54,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navOptions
+import androidx.activity.viewModels
+import com.example.project_v1.viewmodel.MainViewModel
 import com.example.project_v1.data.models.PostAddToInventoryResult
 import com.example.project_v1.data.models.PostAddToInventoryResultDataClass
 import com.example.project_v1.data.models.PostSendBarcodeResult
@@ -69,16 +71,6 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import okhttp3.ResponseBody
-import java.io.IOException
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
@@ -109,15 +101,7 @@ class MainActivity() : ComponentActivity() {
 
     val scanner = BarcodeScanning.getClient(options)
 
-    val str_http: String = "http://192.168."
-    var str_ip: String = "0.173"
-    val str_port: String = ":3000/"
-    var baseURL: String = str_http + str_ip + str_port
-
-    var appUsername: String = "Brak nazwy użytkownika"
-    var appFilename: String = "Brak aktywnej inwentury"
-
-    var settingDone: Int = 0
+    private val viewModel: MainViewModel by viewModels()
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -214,20 +198,20 @@ class MainActivity() : ComponentActivity() {
             }
             Spacer(modifier = Modifier.height(16.dp))
             Button( onClick = {
-                        if (settingDone == 1) {
+                        if (viewModel.settingDone.value == 1) {
                             onClick(str.camera.name)
                         } }
             ) {
-                if (settingDone == 1) {
+                if (viewModel.settingDone.value == 1) {
                     Text(text = "Przejdź do skanera")
                 } else {
                     Text(text = "SPRAWDŹ USTAWIENIA")
                 }
 
             }
-            Text(text = "Obecnie wybrany adres IP $baseURL" , color = Color.White)
-            Text(text = "Obecny użytkownik $appUsername" , color = Color.White)
-            Text(text = "Obecna inwentura $appFilename" , color = Color.White)
+            Text(text = "Obecnie wybrany adres IP ${viewModel.baseURL.value}" , color = Color.White)
+            Text(text = "Obecny użytkownik ${viewModel.appUsername.value}" , color = Color.White)
+            Text(text = "Obecna inwentura ${viewModel.appFilename.value}" , color = Color.White)
         }
     }
 
@@ -327,10 +311,10 @@ class MainActivity() : ComponentActivity() {
                             Spacer(modifier = Modifier.width(16.dp))
                             Button(onClick = {
                                 if (dataToPrint != "") {
-                                    val jsonData = """{"username": "$appUsername", "filename": "$appFilename", "barcode": "$dataToPrint"}"""
+                                    val jsonData = """{"username": "${viewModel.appUsername.value}", "filename": "${viewModel.appFilename.value}", "barcode": "$dataToPrint"}"""
                                     //val jsonData = """{"username":"bb", "filename":"IWTEST", "barcode":"5900085010800"}"""
                                     val commandTestPOST = "send_barcode"
-                                    execPOST(jsonData,commandTestPOST) { response ->
+                                    viewModel.execPOST(jsonData,commandTestPOST) { response ->
                                         querySendBarcodeResult = response
 
                                         try {
@@ -458,9 +442,9 @@ class MainActivity() : ComponentActivity() {
                                     Button(
                                         onClick = {
                                             val jsonData =
-                                                """{"username": "$appUsername", "filename": "$appFilename", "barcode": "$dataToPrint", "already_knowed_barcode": "${resultJsonSendBarcodeResult.already_knowed_barcode}", "barcode_recognized": "${resultJsonSendBarcodeResult.barcode_recognized}", "how_much_to_add": "${setCurrentAmountStr}", "unknown_product_name": "${unknown_product_name}"}"""
+                                                """{"username": "${viewModel.appUsername.value}", "filename": "${viewModel.appFilename.value}", "barcode": "$dataToPrint", "already_knowed_barcode": "${resultJsonSendBarcodeResult.already_knowed_barcode}", "barcode_recognized": "${resultJsonSendBarcodeResult.barcode_recognized}", "how_much_to_add": "${setCurrentAmountStr}", "unknown_product_name": "${unknown_product_name}"}"""
                                             val commandTestPOST = "add_to_inventory"
-                                            execPOST(jsonData, commandTestPOST) { response ->
+                                            viewModel.execPOST(jsonData, commandTestPOST) { response ->
                                                 queryAddToInventoryResult = response
 
                                                 try {
@@ -573,8 +557,6 @@ class MainActivity() : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun SettingsScreen(modifier: Modifier = Modifier, onClick: (String) -> Unit) {
-        var settingDoneTrue by remember { mutableStateOf(1) }
-        settingDone = settingDoneTrue
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -582,7 +564,6 @@ class MainActivity() : ComponentActivity() {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             var ip_address by remember { mutableStateOf("0.173") }
-            var baseTempURL by remember { mutableStateOf("") }
             var usernameTemp by remember { mutableStateOf("Brak") }
             var filenameTemp by remember { mutableStateOf("IW2024") }
 
@@ -618,15 +599,12 @@ class MainActivity() : ComponentActivity() {
                 Text(text = "Powrót do ekranu głównego")
             }
 
-            baseTempURL = str_http + ip_address + str_port
-            baseURL= baseTempURL
-            appUsername = usernameTemp
-            appFilename = filenameTemp
+            viewModel.updateSettings(ip_address, usernameTemp, filenameTemp)
 
             Spacer(modifier = Modifier.height(16.dp))
-            Text(text = "Obecnie wybrany adres IP $baseURL" , color = Color.White)
-            Text(text = "Obecny użytkownik: $appUsername" , color = Color.White)
-            Text(text = "Obecna inwentura: $appFilename" , color = Color.White)
+            Text(text = "Obecnie wybrany adres IP ${viewModel.baseURL.value}" , color = Color.White)
+            Text(text = "Obecny użytkownik: ${viewModel.appUsername.value}" , color = Color.White)
+            Text(text = "Obecna inwentura: ${viewModel.appFilename.value}" , color = Color.White)
         }
     }
 
@@ -660,7 +638,7 @@ class MainActivity() : ComponentActivity() {
             val jsonData = """{"code":"1011", "name":"produkt testowy", "amount":"4"}"""
             val commandTestPOST = "test_post"
 
-            Button(onClick = { execPOST(jsonData,commandTestPOST) { response ->
+            Button(onClick = { viewModel.execPOST(jsonData,commandTestPOST) { response ->
                 queryText = response
                 }
             }){
@@ -679,18 +657,18 @@ class MainActivity() : ComponentActivity() {
 
 
             Text("HTTP Response: $messJson", color = Color.White)
-            Text(baseURL, color = Color.White)
+            Text(viewModel.baseURL.value, color = Color.White)
             Spacer(modifier = Modifier.height(32.dp))
             Text(text = "Utwórz plik inwentury", color = Color.White)
-            if (appFilename == "Brak aktywnej inwentury" || appFilename == "") {
+            if (viewModel.appFilename.value == "Brak aktywnej inwentury" || viewModel.appFilename.value == "") {
                 Text(text = "Brak nazwy pliku inwentry, przejdź do ustawień", color = Color.White)
             } else {
-                Text(text = "Wybrana nazwa inwentury: $appFilename", color = Color.White)
+                Text(text = "Wybrana nazwa inwentury: ${viewModel.appFilename.value}", color = Color.White)
                 Spacer(modifier = Modifier.height(8.dp))
-                val jsonData = """{"username":"$appUsername", "filename":"$appFilename"}"""
+                val jsonData = """{"username":"${viewModel.appUsername.value}", "filename":"${viewModel.appFilename.value}"}"""
                 val commandTestPOST = "set_file"
 
-                Button(onClick = { execPOST(jsonData,commandTestPOST) { response ->
+                Button(onClick = { viewModel.execPOST(jsonData,commandTestPOST) { response ->
                     querySetFile = response
                 }
                 }){
@@ -785,76 +763,8 @@ class MainActivity() : ComponentActivity() {
 
 
     //======================= POST FUN ==========================
-    fun execPOST(data: String, command: String, onResult: (String) -> Unit) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient()
+    // Networking is now delegated to the ViewModel
 
-            val postURL = baseURL + command
-
-            // Konwertowanie danych na JSON
-            val mediaType = "application/json; charset=utf-8".toMediaType()
-            val requestBody = data.toRequestBody(mediaType)
-
-            val request = Request.Builder()
-                .url(postURL)
-                .post(requestBody)
-                .build()
-
-            var result: String
-
-            try {
-                val response = client.newCall(request).execute()
-                result = if (response.isSuccessful) {
-                    val responseBody: ResponseBody? = response.body
-                    responseBody?.string() ?: "Empty response"
-                } else {
-                    "Error: ${response.code}"
-                }
-            } catch (e: IOException) {
-                e.printStackTrace()
-                result = "Network error"
-            }
-
-            withContext(Dispatchers.Main) {
-                onResult(result)
-            }
-        }
-    }
-
-
-
-    //======================= GET TEST ==========================
-    fun execGET(onResult: (String) -> Unit) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val client = OkHttpClient()
-
-            val testURL = (baseURL + "test")
-
-            val request = Request.Builder()
-                .url(testURL)
-                .build()
-
-            var result: String
-
-            try {
-                val response = client.newCall(request).execute()
-                result = if (response.isSuccessful) {
-                    val responseBody: ResponseBody? = response.body
-                    responseBody?.string() ?: "Empty response"
-                } else {
-                    "Error: ${response.code}"
-                }
-            } catch (e: IOException) {
-                e.printStackTrace()
-                result = "Network error"
-            }
-
-            withContext(Dispatchers.Main) {
-                onResult(result)
-            }
-        }
-
-    }
 
 
 
