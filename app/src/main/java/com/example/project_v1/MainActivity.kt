@@ -71,6 +71,9 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import com.example.project_v1.utils.toBitmap
+import androidx.camera.core.YuvToRgbConverter
+import android.graphics.Bitmap
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
@@ -693,6 +696,7 @@ class MainActivity() : ComponentActivity() {
 
         val context = LocalContext.current
         val lifecycle = LocalLifecycleOwner.current
+        val converter = remember { YuvToRgbConverter(context) }
 
         val previewView = remember {
             PreviewView(context)
@@ -723,9 +727,20 @@ class MainActivity() : ComponentActivity() {
                     return@setAnalyzer
                 }
 
-                val inputImage = InputImage.fromMediaImage(
-                    /* image = */ mediaImage,
-                    /* rotationDegrees = */ imageProxy.imageInfo.rotationDegrees
+                val fullBitmap = imageProxy.toBitmap(converter)
+                val topCrop = (fullBitmap.height * 0.2f).toInt()
+                val bottomCrop = (fullBitmap.height * 0.6f).toInt()
+                val croppedBitmap = Bitmap.createBitmap(
+                    fullBitmap,
+                    0,
+                    topCrop,
+                    fullBitmap.width,
+                    bottomCrop - topCrop
+                )
+
+                val inputImage = InputImage.fromBitmap(
+                    croppedBitmap,
+                    imageProxy.imageInfo.rotationDegrees
                 )
 
 
