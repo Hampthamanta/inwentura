@@ -77,6 +77,9 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
+private const val SCAN_TOP_RATIO = 0.2f
+private const val SCAN_BOTTOM_RATIO = 0.6f
+
 
 // private val repository: Repository
 class MainActivity() : ComponentActivity() {
@@ -283,8 +286,8 @@ class MainActivity() : ComponentActivity() {
                 if (screenStage == 0) {
                     val configuration = LocalConfiguration.current
                     val screenHeight = configuration.screenHeightDp.dp
-                    val topOffset = screenHeight * 0.2f
-                    val previewHeight = screenHeight * 0.4f
+                    val topOffset = screenHeight * SCAN_TOP_RATIO
+                    val previewHeight = screenHeight * (SCAN_BOTTOM_RATIO - SCAN_TOP_RATIO)
                     Box(
                         modifier = Modifier
                             .offset(y = topOffset)
@@ -741,8 +744,8 @@ class MainActivity() : ComponentActivity() {
 
                 val bitmap = ImageUtils.imageProxyToBitmap(imageProxy)
                 val rotated = ImageUtils.rotateBitmap(bitmap, imageProxy.imageInfo.rotationDegrees)
-                val startY = (rotated.height * 0.2f).toInt()
-                val endY = (rotated.height * 0.6f).toInt()
+                val startY = (rotated.height * SCAN_TOP_RATIO).toInt()
+                val endY = (rotated.height * SCAN_BOTTOM_RATIO).toInt()
                 val cropHeight = endY - startY
                 val cropped = if (cropHeight > 0 && startY + cropHeight <= rotated.height) {
                     Bitmap.createBitmap(rotated, 0, startY, rotated.width, cropHeight)
