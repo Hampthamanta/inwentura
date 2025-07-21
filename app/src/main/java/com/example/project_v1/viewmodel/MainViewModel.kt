@@ -21,26 +21,29 @@ class MainViewModel(
         private set
     var appFilename = mutableStateOf(SettingsRepository.DEFAULT_FILE)
         private set
+    var barcodeFormats = mutableStateOf(SettingsRepository.DEFAULT_BARCODES)
+        private set
     var settingDone = mutableStateOf(0)
         private set
 
     init {
         val saved = settingsRepository.loadSettings()
-        applySettings(saved.ipSuffix, saved.username, saved.filename, save = false)
+        applySettings(saved.ipSuffix, saved.username, saved.filename, saved.barcodeFormats, save = false)
     }
 
-    fun updateSettings(ip: String, username: String, filename: String) {
-        applySettings(ip, username, filename, save = true)
+    fun updateSettings(ip: String, username: String, filename: String, barcodes: Set<Int>) {
+        applySettings(ip, username, filename, barcodes, save = true)
     }
 
-    private fun applySettings(ip: String, username: String, filename: String, save: Boolean) {
+    private fun applySettings(ip: String, username: String, filename: String, barcodes: Set<Int>, save: Boolean) {
         ipSuffix.value = ip
         baseURL.value = "http://192.168.${ip}:3000/"
         appUsername.value = username
         appFilename.value = filename
+        barcodeFormats.value = barcodes
         settingDone.value = 1
         if (save) {
-            settingsRepository.saveSettings(ip, username, filename)
+            settingsRepository.saveSettings(ip, username, filename, barcodes)
         }
     }
 

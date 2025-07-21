@@ -31,10 +31,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,6 +74,7 @@ import com.google.mlkit.nl.entityextraction.Entity
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.barcode.BarcodeScanner
 import com.google.mlkit.vision.common.InputImage
 import android.graphics.Bitmap
 import com.squareup.moshi.Moshi
@@ -93,21 +96,6 @@ class MainActivity() : ComponentActivity() {
 ////////////////////// MODELE SIECI NEURONOWYCH
     private val mlExecutor = Executors.newSingleThreadExecutor()
 
-    val options = BarcodeScannerOptions.Builder()
-        .setBarcodeFormats(
-            Barcode.FORMAT_CODE_128,
-            Barcode.FORMAT_CODE_39,
-            Barcode.FORMAT_CODE_93,
-            Barcode.FORMAT_CODABAR,
-            Barcode.FORMAT_EAN_13,
-            Barcode.FORMAT_EAN_8,
-            Barcode.FORMAT_ITF,
-            Barcode.FORMAT_UPC_A,
-            Barcode.FORMAT_UPC_E,)
-        .setExecutor(mlExecutor)
-        .build()
-
-    val scanner = BarcodeScanning.getClient(options)
 
     private val viewModel: MainViewModel by viewModels {
         MainViewModelFactory(application)
@@ -125,7 +113,7 @@ class MainActivity() : ComponentActivity() {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
         // uzależnienie modeli od cyklu życia aplikacji
-        lifecycle.addObserver(scanner)
+        // scanner initialized in CameraScreen
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -271,6 +259,25 @@ class MainActivity() : ComponentActivity() {
         val adapterSB = moshi.adapter(PostSendBarcodeResult::class.java)
         val adapterATI = moshi.adapter(PostAddToInventoryResult::class.java)
 
+        val lifecycleOwner = LocalLifecycleOwner.current
+        val scanner = remember(viewModel.barcodeFormats.value) {
+            val formats = viewModel.barcodeFormats.value.toIntArray()
+            val builder = BarcodeScannerOptions.Builder()
+            if (formats.isNotEmpty()) {
+                val first = formats[0]
+                val rest = if (formats.size > 1) formats.sliceArray(1 until formats.size) else intArrayOf()
+                builder.setBarcodeFormats(first, *rest)
+            }
+            val options = builder
+                .setExecutor(mlExecutor)
+                .build()
+            BarcodeScanning.getClient(options)
+        }
+        DisposableEffect(scanner) {
+            lifecycleOwner.lifecycle.addObserver(scanner)
+            onDispose { scanner.close() }
+        }
+
 
         ////////////////////////////////////////////////////////////
         ///////////////// MODELE SIECI NEURONOWYCH /////////////////
@@ -302,6 +309,7 @@ class MainActivity() : ComponentActivity() {
                             imageAnalysis = imageAnalysis,
                             preview = preview,
                             executor = cameraExecutor,
+                            scanner = scanner,
                             callable = { annotations ->
                                 dataToPrint = annotations.toString()
                             },
@@ -588,6 +596,23 @@ class MainActivity() : ComponentActivity() {
             var ip_address by remember { mutableStateOf(viewModel.ipSuffix.value) }
             var usernameTemp by remember { mutableStateOf(viewModel.appUsername.value) }
             var filenameTemp by remember { mutableStateOf(viewModel.appFilename.value) }
+            var selectedFormats by remember { mutableStateOf(viewModel.barcodeFormats.value.toMutableSet()) }
+
+            val allFormats = listOf(
+                Barcode.FORMAT_CODE_128 to "Code 128",
+                Barcode.FORMAT_CODE_39 to "Code 39",
+                Barcode.FORMAT_CODE_93 to "Code 93",
+                Barcode.FORMAT_CODABAR to "Codabar",
+                Barcode.FORMAT_DATA_MATRIX to "Data Matrix",
+                Barcode.FORMAT_EAN_13 to "EAN 13",
+                Barcode.FORMAT_EAN_8 to "EAN 8",
+                Barcode.FORMAT_ITF to "ITF",
+                Barcode.FORMAT_QR_CODE to "QR Code",
+                Barcode.FORMAT_UPC_A to "UPC A",
+                Barcode.FORMAT_UPC_E to "UPC E",
+                Barcode.FORMAT_PDF417 to "PDF417",
+                Barcode.FORMAT_AZTEC to "Aztec"
+            )
 
             Spacer(modifier = Modifier.height(160.dp))
             Text(text = "Wpisz adres IP (192.168.)xxx.xxx np. 0.186", color = Color.White)
@@ -617,11 +642,32 @@ class MainActivity() : ComponentActivity() {
                 modifier = modifier
             )
             Spacer(modifier = Modifier.height(16.dp))
+            Text(text = "Typy kodów do wykrycia", color = Color.White)
+            allFormats.forEach { (format, label) ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Checkbox(
+                        checked = selectedFormats.contains(format),
+                        onCheckedChange = { checked ->
+                            selectedFormats = selectedFormats.toMutableSet().apply {
+                                if (checked) add(format) else remove(format)
+                            }
+                        }
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(label, color = Color.White)
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = { onClick(str.main.name) }) {
                 Text(text = "Powrót do ekranu głównego")
             }
 
-            viewModel.updateSettings(ip_address, usernameTemp, filenameTemp)
+            viewModel.updateSettings(ip_address, usernameTemp, filenameTemp, selectedFormats)
 
             Spacer(modifier = Modifier.height(16.dp))
             Text(text = "Obecnie wybrany adres IP ${viewModel.baseURL.value}" , color = Color.White)
@@ -710,6 +756,7 @@ class MainActivity() : ComponentActivity() {
         imageAnalysis: ImageAnalysis,
         preview: Preview,
         executor: Executor,
+        scanner: BarcodeScanner,
         callable: (String) -> Unit,
         modifier: Modifier = Modifier
     ) {
