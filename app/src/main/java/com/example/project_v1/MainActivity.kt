@@ -34,9 +34,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.DisposableEffect
@@ -645,46 +644,29 @@ class MainActivity() : ComponentActivity() {
                 modifier = modifier
             )
             Spacer(modifier = Modifier.height(16.dp))
-            var expanded by remember { mutableStateOf(false) }
-            val selectedLabels = allFormats
-                .filter { selectedFormats.contains(it.first) }
-                .joinToString { it.second }
-
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded }
+            Text(text = "Typy kodów do wykrycia", color = Color.White)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
             ) {
-                TextField(
-                    value = selectedLabels,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Typy kodów do wykrycia") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    allFormats.forEach { (format, label) ->
-                        DropdownMenuItem(
-                            text = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(
-                                        checked = selectedFormats.contains(format),
-                                        onCheckedChange = null
-                                    )
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(label)
-                                }
-                            },
-                            onClick = {
+                allFormats.forEach { (format, label) ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Checkbox(
+                            checked = selectedFormats.contains(format),
+                            onCheckedChange = { checked ->
                                 selectedFormats = selectedFormats.toMutableSet().apply {
-                                    if (contains(format)) remove(format) else add(format)
+                                    if (checked) add(format) else remove(format)
                                 }
-                            },
-                            contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                            }
                         )
+                        Spacer(Modifier.width(8.dp))
+                        Text(label, color = Color.White)
                     }
                 }
             }
