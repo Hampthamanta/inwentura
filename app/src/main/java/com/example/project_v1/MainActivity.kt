@@ -261,8 +261,14 @@ class MainActivity() : ComponentActivity() {
 
         val lifecycleOwner = LocalLifecycleOwner.current
         val scanner = remember(viewModel.barcodeFormats.value) {
-            val options = BarcodeScannerOptions.Builder()
-                .setBarcodeFormats(*viewModel.barcodeFormats.value.toIntArray())
+            val formats = viewModel.barcodeFormats.value.toIntArray()
+            val builder = BarcodeScannerOptions.Builder()
+            if (formats.isNotEmpty()) {
+                val first = formats[0]
+                val rest = if (formats.size > 1) formats.sliceArray(1 until formats.size) else intArrayOf()
+                builder.setBarcodeFormats(first, *rest)
+            }
+            val options = builder
                 .setExecutor(mlExecutor)
                 .build()
             BarcodeScanning.getClient(options)
