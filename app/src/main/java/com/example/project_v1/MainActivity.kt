@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -62,6 +63,7 @@ import com.example.project_v1.data.models.PostSendBarcodeResult
 import com.example.project_v1.data.models.PostSendBarcodeResultDataClass
 import com.example.project_v1.data.models.TestPostResult
 import com.example.project_v1.ui.data.str
+import com.example.project_v1.util.ImageUtils
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.mlkit.nl.entityextraction.Entity
@@ -69,10 +71,14 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import android.graphics.Bitmap
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+
+private const val SCAN_TOP_RATIO = 0.2f
+private const val SCAN_BOTTOM_RATIO = 0.6f
 
 
 // private val repository: Repository
@@ -278,14 +284,26 @@ class MainActivity() : ComponentActivity() {
                 }
 
                 if (screenStage == 0) {
-                    CameraView(
-                        imageAnalysis = imageAnalysis,
-                        preview = preview,
-                        executor = cameraExecutor,
-                        callable = { annotations ->
-                            dataToPrint = annotations.toString()
-                        }
-                    )
+                    val configuration = LocalConfiguration.current
+                    val screenHeight = configuration.screenHeightDp.dp
+                    val topOffset = screenHeight * SCAN_TOP_RATIO
+                    val previewHeight = screenHeight * (SCAN_BOTTOM_RATIO - SCAN_TOP_RATIO)
+                    Box(
+                        modifier = Modifier
+                            .offset(y = topOffset)
+                            .fillMaxWidth()
+                            .height(previewHeight)
+                    ) {
+                        CameraView(
+                            imageAnalysis = imageAnalysis,
+                            preview = preview,
+                            executor = cameraExecutor,
+                            callable = { annotations ->
+                                dataToPrint = annotations.toString()
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
 
 
@@ -688,7 +706,8 @@ class MainActivity() : ComponentActivity() {
         imageAnalysis: ImageAnalysis,
         preview: Preview,
         executor: Executor,
-        callable: (String) -> Unit
+        callable: (String) -> Unit,
+        modifier: Modifier = Modifier
     ) {
 
         val context = LocalContext.current
@@ -723,10 +742,18 @@ class MainActivity() : ComponentActivity() {
                     return@setAnalyzer
                 }
 
-                val inputImage = InputImage.fromMediaImage(
-                    /* image = */ mediaImage,
-                    /* rotationDegrees = */ imageProxy.imageInfo.rotationDegrees
-                )
+                val bitmap = ImageUtils.imageProxyToBitmap(imageProxy)
+                val rotated = ImageUtils.rotateBitmap(bitmap, imageProxy.imageInfo.rotationDegrees)
+                val startY = (rotated.height * SCAN_TOP_RATIO).toInt()
+                val endY = (rotated.height * SCAN_BOTTOM_RATIO).toInt()
+                val cropHeight = endY - startY
+                val cropped = if (cropHeight > 0 && startY + cropHeight <= rotated.height) {
+                    Bitmap.createBitmap(rotated, 0, startY, rotated.width, cropHeight)
+                } else {
+                    rotated
+                }
+
+                val inputImage = InputImage.fromBitmap(cropped, 0)
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -753,7 +780,7 @@ class MainActivity() : ComponentActivity() {
             }
         }
 
-        AndroidView(modifier = Modifier.fillMaxSize(), factory = { previewView })
+        AndroidView(modifier = modifier.fillMaxSize(), factory = { previewView })
         // Połączenie composible z android view
     }
 
