@@ -70,6 +70,7 @@ dependencies {
     kapt("com.squareup.moshi:moshi-kotlin-codegen:1.14.0")
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.5.1")
+    implementation("androidx.datastore:datastore-preferences:1.0.0")
 
     implementation("androidx.core:core-ktx:1.9.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.1")
