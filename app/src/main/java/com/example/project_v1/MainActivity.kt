@@ -725,7 +725,7 @@ class MainActivity() : ComponentActivity() {
                     return@setAnalyzer
                 }
 
-                val bitmap = ImageUtils.imageProxyToBitmap(context, imageProxy)
+                val bitmap = ImageUtils.imageProxyToBitmap(imageProxy)
                 val rotated = ImageUtils.rotateBitmap(bitmap, imageProxy.imageInfo.rotationDegrees)
                 val startY = (rotated.height * 0.2f).toInt()
                 val endY = (rotated.height * 0.6f).toInt()

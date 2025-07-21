@@ -1,26 +1,38 @@
 package com.example.project_v1.util
 
-import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageFormat
 import android.graphics.Matrix
+import android.graphics.Rect
+import android.graphics.YuvImage
 import androidx.camera.core.ImageProxy
-import androidx.camera.core.YuvToRgbConverter
+import java.io.ByteArrayOutputStream
 
 object ImageUtils {
-    private var converter: YuvToRgbConverter? = null
 
-    private fun getConverter(context: Context): YuvToRgbConverter {
-        return converter ?: YuvToRgbConverter(context).also { converter = it }
-    }
+    /**
+     * Convert [ImageProxy] from YUV_420_888 format to [Bitmap].
+     */
+    fun imageProxyToBitmap(image: ImageProxy): Bitmap {
+        val yBuffer = image.planes[0].buffer
+        val uBuffer = image.planes[1].buffer
+        val vBuffer = image.planes[2].buffer
 
-    fun imageProxyToBitmap(context: Context, image: ImageProxy): Bitmap {
-        val conv = getConverter(context)
-        val bitmap = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
-        val img = image.image
-        if (img != null) {
-            conv.yuvToRgb(img, bitmap)
-        }
-        return bitmap
+        val ySize = yBuffer.remaining()
+        val uSize = uBuffer.remaining()
+        val vSize = vBuffer.remaining()
+
+        val nv21 = ByteArray(ySize + uSize + vSize)
+        yBuffer.get(nv21, 0, ySize)
+        vBuffer.get(nv21, ySize, vSize)
+        uBuffer.get(nv21, ySize + vSize, uSize)
+
+        val yuvImage = YuvImage(nv21, ImageFormat.NV21, image.width, image.height, null)
+        val out = ByteArrayOutputStream()
+        yuvImage.compressToJpeg(Rect(0, 0, image.width, image.height), 100, out)
+        val imageBytes = out.toByteArray()
+        return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
     }
 
     fun rotateBitmap(bitmap: Bitmap, rotationDegrees: Int): Bitmap {
