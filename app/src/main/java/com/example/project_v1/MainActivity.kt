@@ -62,6 +62,7 @@ import com.example.project_v1.data.models.PostSendBarcodeResult
 import com.example.project_v1.data.models.PostSendBarcodeResultDataClass
 import com.example.project_v1.data.models.TestPostResult
 import com.example.project_v1.ui.data.str
+import com.example.project_v1.util.ImageUtils
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import com.google.mlkit.nl.entityextraction.Entity
@@ -69,6 +70,7 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
+import android.graphics.Bitmap
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.util.concurrent.Executor
@@ -723,10 +725,18 @@ class MainActivity() : ComponentActivity() {
                     return@setAnalyzer
                 }
 
-                val inputImage = InputImage.fromMediaImage(
-                    /* image = */ mediaImage,
-                    /* rotationDegrees = */ imageProxy.imageInfo.rotationDegrees
-                )
+                val bitmap = ImageUtils.imageProxyToBitmap(imageProxy)
+                val rotated = ImageUtils.rotateBitmap(bitmap, imageProxy.imageInfo.rotationDegrees)
+                val startY = (rotated.height * 0.2f).toInt()
+                val endY = (rotated.height * 0.6f).toInt()
+                val cropHeight = endY - startY
+                val cropped = if (cropHeight > 0 && startY + cropHeight <= rotated.height) {
+                    Bitmap.createBitmap(rotated, 0, startY, rotated.width, cropHeight)
+                } else {
+                    rotated
+                }
+
+                val inputImage = InputImage.fromBitmap(cropped, 0)
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
